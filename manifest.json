@@ -1,0 +1,12 @@
+
+{
+  "name": "ClipNest",
+  "short_name": "ClipNest",
+  "description": "Your personal clipboard library for saving and organizing everything you want to keep.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f2fa",
+  "theme_color": "#6d4ca3",
+  "orientation": "portrait",
+  "icons": []
+}
