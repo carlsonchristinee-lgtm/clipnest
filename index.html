@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6d4ca3">
+  <meta name="description" content="Your personal clipboard library.">
+  <title>ClipNest - Your Clipboard Library</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+</head>
+<body>
+
+  <header>
+    <h1>ClipNest</h1>
+    <p>Your personal clipboard library</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Save a New Clip</h2>
+
+      <form id="clipForm">
+        <label for="clipTitle">Title</label>
+        <input id="clipTitle" type="text" placeholder="Give your clip a name">
+
+        <label for="clipCategory">Category</label>
+        <select id="clipCategory">
+          <option>Text</option>
+          <option>Image</option>
+          <option>Link</option>
+          <option>AI Prompt</option>
+          <option>Caption</option>
+          <option>Other</option>
+        </select>
+
+        <label for="clipFolder">Folder</label>
+        <input id="clipFolder" type="text" placeholder="Example: Garden, Business, Ideas">
+
+        <label for="clipContent">Content</label>
+        <textarea id="clipContent" placeholder="Paste or type what you want to save..." required></textarea>
+
+        <button type="button" onclick="pasteFromClipboard()">Paste from Clipboard</button>
+        <button type="submit">Save Clip</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>My Clip Library</h2>
+
+      <input
+        id="searchInput"
+        type="search"
+        placeholder="Search your clips..."
+        aria-label="Search clips"
+      >
+
+      <div id="clipList" aria-live="polite"></div>
+    </section>
+
+    <section>
+      <h2>Backup Your Library</h2>
+      <p>Download a backup or restore one you saved earlier.</p>
+
+      <button type="button" onclick="exportBackup()">Export Backup</button>
+
+      <label for="backupFile">Import Backup</label>
+      <input id="backupFile" type="file" accept=".json,application/json" onchange="importBackup(event)">
+    </section>
+  </main>
+
+  <footer>
+    <p>ClipNest — Keep what matters close.</p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .catch(error => console.error("Service worker registration failed:", error));
+      });
+    }
+  </script>
+
+</body>
+</html>
