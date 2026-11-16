@@ -4,93 +4,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#6d4ca3">
-  <meta name="description" content="Your personal clipboard library.">
-  <title>ClipNest - Your Clipboard Library</title>
+  <meta name="theme-color" content="#7651a8">
+  <title>ClipNest - Where Everything Has Its Place</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
-  <header>
+  <header class="app-header">
     <h1>ClipNest</h1>
-    <p>Your personal clipboard library</p>
+    <p>Where everything has its place.</p>
   </header>
 
-  <main>
-    <p id="statusMessage" class="status-message" role="status" aria-live="polite"></p>
+  <main class="container">
 
-    <section>
+    <div id="statusMessage" role="status" aria-live="polite"></div>
+
+    <section id="lastWorkBox" class="section-card">
+      <h2>Where I Left Off</h2>
+      <p id="lastWorkText">Your last opened or edited clip will appear here.</p>
+    </section>
+
+    <section class="section-card quick-find">
+      <h2>🔎 Quick Find</h2>
+      <p>Find clips by title, words, phrases, or details inside your saved content.</p>
+      <input
+        type="search"
+        id="searchInput"
+        placeholder="What are you looking for?"
+        autocomplete="off"
+      >
+    </section>
+
+    <section class="section-card">
+      <h2>Quick Capture</h2>
+      <p>Save a thought or copied text quickly. Organize it later.</p>
+      <textarea
+        id="quickCaptureContent"
+        rows="4"
+        placeholder="Type or paste something to save..."
+      ></textarea>
+      <button type="button" id="quickCaptureButton" class="primary-button">
+        Quick Save to Inbox
+      </button>
+    </section>
+
+    <section class="section-card">
       <h2>Save a New Clip</h2>
       <form id="clipForm">
         <label for="clipTitle">Title</label>
-        <input id="clipTitle" type="text" placeholder="Give your clip a name">
+        <input
+          type="text"
+          id="clipTitle"
+          placeholder="Give your clip a title"
+          required
+        >
 
         <label for="clipCategory">Category</label>
         <select id="clipCategory">
-          <option>Text</option>
-          <option>Image</option>
-          <option>Link</option>
-          <option>AI Prompt</option>
-          <option>Caption</option>
-          <option>Other</option>
+          <option value="Text">Text</option>
+          <option value="Images">Images</option>
+          <option value="Links">Links</option>
+          <option value="Ideas">Ideas</option>
+          <option value="Other">Other</option>
         </select>
 
         <label for="clipFolder">Folder</label>
-        <input id="clipFolder" type="text" placeholder="Example: Garden, Business, Ideas">
+        <input
+          type="text"
+          id="clipFolder"
+          placeholder="Example: Work, Garden, Social Media"
+        >
 
         <label for="clipContent">Content</label>
-        <textarea id="clipContent" placeholder="Paste or type what you want to save..." required></textarea>
+        <textarea
+          id="clipContent"
+          rows="6"
+          placeholder="Paste or type your clip here..."
+          required
+        ></textarea>
 
-        <button id="pasteButton" type="button">Paste from Clipboard</button>
-        <button type="submit">Save Clip</button>
+        <button type="button" id="pasteButton">Paste from Clipboard</button>
+        <button type="submit" class="primary-button">Save Clip</button>
       </form>
     </section>
 
-    <section>
+    <section class="section-card">
+      <h2>Coming Up</h2>
+      <p>Clips with reminders will appear here, earliest first.</p>
+      <div id="reminderList">
+        <p>No reminders yet.</p>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>Waiting On</h2>
+      <p>Keep track of clips that are waiting on someone.</p>
+      <div id="waitingList">
+        <p>Nothing waiting right now.</p>
+      </div>
+    </section>
+
+    <section class="section-card">
       <h2>My Clip Library</h2>
-      <input id="searchInput" type="search" placeholder="Search your clips..." aria-label="Search clips">
 
       <div class="filter-row">
-        <label for="categoryFilter">Filter by category</label>
-        <select id="categoryFilter">
-          <option value="">All categories</option>
-        </select>
+        <div>
+          <label for="categoryFilter">Category</label>
+          <select id="categoryFilter">
+            <option value="">All Categories</option>
+            <option value="Text">Text</option>
+            <option value="Images">Images</option>
+            <option value="Links">Links</option>
+            <option value="Ideas">Ideas</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
 
-        <label for="folderFilter">Filter by folder</label>
-        <select id="folderFilter">
-          <option value="">All folders</option>
-        </select>
+        <div>
+          <label for="folderFilter">Folder</label>
+          <select id="folderFilter">
+            <option value="">All Folders</option>
+          </select>
+        </div>
       </div>
 
-      <div id="clipList" aria-live="polite"></div>
+      <div id="clipList">
+        <p>Your saved clips will appear here.</p>
+      </div>
     </section>
 
-    <section>
-      <h2>Backup Your Library</h2>
-      <p>Download a backup or restore one you saved earlier.</p>
+    <section class="section-card">
+      <h2>Backup & Restore</h2>
+      <p>Export a backup to keep a copy of your clips, or import a previous ClipNest backup.</p>
 
-      <button id="exportButton" type="button">Export Backup</button>
+      <button type="button" id="exportButton">Export Backup</button>
 
-      <label for="backupFile">Import Backup</label>
-      <input id="backupFile" type="file" accept=".json,application/json">
+      <label for="backupFile">Choose a backup file to import</label>
+      <input type="file" id="backupFile">
 
-      <div id="importConfirmation" class="confirmation-panel" hidden></div>
+      <div id="importConfirmation"></div>
     </section>
+
   </main>
 
   <footer>
-    <p>ClipNest — Keep what matters close.</p>
+    <p>ClipNest — Your clips, all in one place.</p>
   </footer>
 
   <script src="app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js")
-          .catch(error => console.error("Service worker registration failed:", error));
-      });
-    }
-  </script>
 </body>
 </html>
