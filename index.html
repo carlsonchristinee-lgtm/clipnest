@@ -12,16 +12,16 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
-
   <header>
     <h1>ClipNest</h1>
     <p>Your personal clipboard library</p>
   </header>
 
   <main>
+    <p id="statusMessage" class="status-message" role="status" aria-live="polite"></p>
+
     <section>
       <h2>Save a New Clip</h2>
-
       <form id="clipForm">
         <label for="clipTitle">Title</label>
         <input id="clipTitle" type="text" placeholder="Give your clip a name">
@@ -42,20 +42,26 @@
         <label for="clipContent">Content</label>
         <textarea id="clipContent" placeholder="Paste or type what you want to save..." required></textarea>
 
-        <button type="button" onclick="pasteFromClipboard()">Paste from Clipboard</button>
+        <button id="pasteButton" type="button">Paste from Clipboard</button>
         <button type="submit">Save Clip</button>
       </form>
     </section>
 
     <section>
       <h2>My Clip Library</h2>
+      <input id="searchInput" type="search" placeholder="Search your clips..." aria-label="Search clips">
 
-      <input
-        id="searchInput"
-        type="search"
-        placeholder="Search your clips..."
-        aria-label="Search clips"
-      >
+      <div class="filter-row">
+        <label for="categoryFilter">Filter by category</label>
+        <select id="categoryFilter">
+          <option value="">All categories</option>
+        </select>
+
+        <label for="folderFilter">Filter by folder</label>
+        <select id="folderFilter">
+          <option value="">All folders</option>
+        </select>
+      </div>
 
       <div id="clipList" aria-live="polite"></div>
     </section>
@@ -64,10 +70,12 @@
       <h2>Backup Your Library</h2>
       <p>Download a backup or restore one you saved earlier.</p>
 
-      <button type="button" onclick="exportBackup()">Export Backup</button>
+      <button id="exportButton" type="button">Export Backup</button>
 
       <label for="backupFile">Import Backup</label>
-      <input id="backupFile" type="file" accept=".json,application/json" onchange="importBackup(event)">
+      <input id="backupFile" type="file" accept=".json,application/json">
+
+      <div id="importConfirmation" class="confirmation-panel" hidden></div>
     </section>
   </main>
 
@@ -84,6 +92,5 @@
       });
     }
   </script>
-
 </body>
 </html>
