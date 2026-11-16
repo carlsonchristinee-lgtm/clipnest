@@ -13,23 +13,25 @@ try {
   clips = [];
 }
 
-const form = document.getElementById("clipForm");
-const titleInput = document.getElementById("clipTitle");
-const categoryInput = document.getElementById("clipCategory");
-const folderInput = document.getElementById("clipFolder");
-const contentInput = document.getElementById("clipContent");
-const searchInput = document.getElementById("searchInput");
-const categoryFilter = document.getElementById("categoryFilter");
-const folderFilter = document.getElementById("folderFilter");
-const clipList = document.getElementById("clipList");
-const statusMessage = document.getElementById("statusMessage");
-const backupFile = document.getElementById("backupFile");
+const $ = id => document.getElementById(id);
 
-const quickCaptureContent = document.getElementById("quickCaptureContent");
-const quickCaptureButton = document.getElementById("quickCaptureButton");
-const lastWorkText = document.getElementById("lastWorkText");
-const reminderList = document.getElementById("reminderList");
-const waitingList = document.getElementById("waitingList");
+const form = $("clipForm");
+const titleInput = $("clipTitle");
+const categoryInput = $("clipCategory");
+const folderInput = $("clipFolder");
+const contentInput = $("clipContent");
+const searchInput = $("searchInput");
+const categoryFilter = $("categoryFilter");
+const folderFilter = $("folderFilter");
+const clipList = $("clipList");
+const statusMessage = $("statusMessage");
+const backupFile = $("backupFile");
+
+function makeId() {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString() + Math.random().toString(16).slice(2);
+}
 
 function showStatus(message, type = "info", undoAction = null) {
   statusMessage.replaceChildren();
@@ -56,6 +58,15 @@ function saveClips() {
   }
 }
 
+function makeButton(label, action, className = "") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.className = className;
+  button.addEventListener("click", action);
+  return button;
+}
+
 function rememberLastWork(clip) {
   try {
     localStorage.setItem(LAST_WORK_KEY, JSON.stringify({
@@ -70,10 +81,13 @@ function rememberLastWork(clip) {
 }
 
 function renderLastWork() {
+  const lastWorkText = $("lastWorkText");
   if (!lastWorkText) return;
 
   try {
-    const last = JSON.parse(localStorage.getItem(LAST_WORK_KEY) || "null");
+    const last = JSON.parse(
+      localStorage.getItem(LAST_WORK_KEY) || "null"
+    );
 
     if (!last) {
       lastWorkText.textContent =
@@ -81,12 +95,12 @@ function renderLastWork() {
       return;
     }
 
-    const date = new Date(last.date);
     lastWorkText.textContent =
       last.action + ": " + last.title + " — " +
-      date.toLocaleString();
+      new Date(last.date).toLocaleString();
   } catch {
-    lastWorkText.textContent = "Your last opened or edited clip will appear here.";
+    lastWorkText.textContent =
+      "Your last opened or edited clip will appear here.";
   }
 }
 
@@ -125,19 +139,39 @@ function addClip(event) {
   }
 }
 
-function makeId() {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : Date.now().toString() + Math.random().toString(16).slice(2);
-}
+function quickCapture() {
+  const input = $("quickCaptureContent");
+  const content = input.value.trim();
 
-function makeButton(label, action, className = "") {
-  const button = document.createElement("button");
-  button.textContent = label;
-  button.type = "button";
-  button.className = className;
-  button.addEventListener("click", action);
-  return button;
+  if (!content) {
+    showStatus("Type or paste something first.", "error");
+    input.focus();
+    return;
+  }
+
+  const clip = {
+    id: makeId(),
+    title: "Quick Note",
+    category: "Text",
+    folder: "Inbox",
+    content,
+    created: new Date().toISOString(),
+    reminderDate: "",
+    waiting: false,
+    checklist: null
+  };
+
+  clips.unshift(clip);
+
+  if (saveClips()) {
+    input.value = "";
+    refreshFilters();
+    renderAll();
+    rememberLastWork(clip);
+    showStatus("Quick Capture saved to Inbox!", "success");
+  } else {
+    clips = clips.filter(item => item.id !== clip.id);
+  }
 }
 
 function refreshFilters() {
@@ -152,11 +186,21 @@ function refreshFilters() {
     clips.map(c => c.folder || "My Clips")
   )].sort();
 
-  categoryFilter.replaceChildren(new Option("All Categories", ""));
-  categories.forEach(v => categoryFilter.add(new Option(v, v)));
+  categoryFilter.replaceChildren(
+    new Option("All Categories", "")
+  );
 
-  folderFilter.replaceChildren(new Option("All Folders", ""));
-  folders.forEach(v => folderFilter.add(new Option(v, v)));
+  categories.forEach(value =>
+    categoryFilter.add(new Option(value, value))
+  );
+
+  folderFilter.replaceChildren(
+    new Option("All Folders", "")
+  );
+
+  folders.forEach(value =>
+    folderFilter.add(new Option(value, value))
+  );
 
   categoryFilter.value = categories.includes(selectedCategory)
     ? selectedCategory : "";
@@ -173,7 +217,12 @@ function renderAll() {
 }
 
 function renderClips() {
-  const search = searchInput.value.toLowerCase().trim();
+  const searchWords = searchInput.value
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
   const category = categoryFilter.value;
   const folder = folderFilter.value;
 
@@ -182,14 +231,17 @@ function renderClips() {
       ? clip.checklist.map(item => item.text).join(" ")
       : "";
 
-    const matchesSearch = [
+    const searchableText = [
       clip.title,
       clip.category,
       clip.folder,
       clip.content,
       checklistText
-    ].some(value =>
-      String(value || "").toLowerCase().includes(search)
+    ].join(" ").toLowerCase();
+
+    // Every search word must appear somewhere in the clip.
+    const matchesSearch = searchWords.every(word =>
+      searchableText.includes(word)
     );
 
     return matchesSearch &&
@@ -200,9 +252,11 @@ function renderClips() {
   clipList.replaceChildren();
 
   if (!filtered.length) {
-    clipList.textContent = clips.length
+    const empty = document.createElement("p");
+    empty.textContent = clips.length
       ? "No clips match your search or filters."
       : "No clips found. Add your first clip!";
+    clipList.appendChild(empty);
     return;
   }
 
@@ -213,7 +267,6 @@ function renderClips() {
     const heading = document.createElement("h3");
     heading.textContent = clip.title;
     heading.tabIndex = 0;
-    heading.title = "Open this clip";
     heading.addEventListener("click", () => rememberLastWork(clip));
 
     const details = document.createElement("small");
@@ -224,16 +277,15 @@ function renderClips() {
     card.append(heading, details);
 
     if (clip.waiting) {
-      const waitingTag = document.createElement("p");
-      waitingTag.textContent = "⏳ Waiting on someone";
-      card.appendChild(waitingTag);
+      const tag = document.createElement("p");
+      tag.textContent = "⏳ Waiting on someone";
+      card.appendChild(tag);
     }
 
     if (clip.reminderDate) {
-      const reminderTag = document.createElement("p");
-      reminderTag.textContent =
-        "📅 Reminder: " + formatDate(clip.reminderDate);
-      card.appendChild(reminderTag);
+      const tag = document.createElement("p");
+      tag.textContent = "📅 Reminder: " + formatDate(clip.reminderDate);
+      card.appendChild(tag);
     }
 
     if (Array.isArray(clip.checklist)) {
@@ -257,7 +309,9 @@ function renderClips() {
         () => toggleWaiting(clip.id)
       ),
       makeButton(
-        Array.isArray(clip.checklist) ? "Turn off Checklist" : "Make Checklist",
+        Array.isArray(clip.checklist)
+          ? "Turn off Checklist"
+          : "Make Checklist",
         () => toggleChecklist(clip.id)
       ),
       makeButton("Delete", () => deleteClip(clip.id), "danger")
@@ -301,7 +355,7 @@ function renderChecklist(card, clip) {
   heading.textContent = "Checklist";
   card.appendChild(heading);
 
-  clip.checklist.forEach((item, index) => {
+  clip.checklist.forEach(item => {
     const label = document.createElement("label");
     label.className = "checklist-item";
 
@@ -325,7 +379,9 @@ function renderChecklist(card, clip) {
     const text = document.createElement("span");
     text.textContent = item.text;
 
-    if (item.done) text.style.textDecoration = "line-through";
+    if (item.done) {
+      text.style.textDecoration = "line-through";
+    }
 
     label.append(checkbox, text);
     card.appendChild(label);
@@ -333,9 +389,10 @@ function renderChecklist(card, clip) {
 }
 
 function renderReminders() {
-  if (!reminderList) return;
+  const list = $("reminderList");
+  if (!list) return;
 
-  reminderList.replaceChildren();
+  list.replaceChildren();
 
   const upcoming = clips
     .filter(clip => clip.reminderDate)
@@ -344,7 +401,7 @@ function renderReminders() {
     );
 
   if (!upcoming.length) {
-    reminderList.textContent = "No reminders yet.";
+    list.textContent = "No reminders yet.";
     return;
   }
 
@@ -354,19 +411,20 @@ function renderReminders() {
       formatDate(clip.reminderDate) + " — " + clip.title;
     item.tabIndex = 0;
     item.addEventListener("click", () => rememberLastWork(clip));
-    reminderList.appendChild(item);
+    list.appendChild(item);
   });
 }
 
 function renderWaiting() {
-  if (!waitingList) return;
+  const list = $("waitingList");
+  if (!list) return;
 
-  waitingList.replaceChildren();
+  list.replaceChildren();
 
   const waiting = clips.filter(clip => clip.waiting);
 
   if (!waiting.length) {
-    waitingList.textContent = "Nothing waiting right now.";
+    list.textContent = "Nothing waiting right now.";
     return;
   }
 
@@ -375,21 +433,23 @@ function renderWaiting() {
     item.textContent = clip.title;
     item.tabIndex = 0;
     item.addEventListener("click", () => rememberLastWork(clip));
-    waitingList.appendChild(item);
+    list.appendChild(item);
   });
 }
 
 function formatDate(value) {
   if (!value) return "";
+
   const parts = value.split("-");
   if (parts.length !== 3) return value;
+
   return parts[1] + "/" + parts[2] + "/" + parts[0];
 }
 
 async function copyClip(clip) {
   try {
-    if (!navigator.clipboard || !navigator.clipboard.writeText) {
-      throw new Error("Unavailable");
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard unavailable");
     }
 
     await navigator.clipboard.writeText(clip.content);
@@ -397,7 +457,7 @@ async function copyClip(clip) {
     showStatus("Copied!", "success");
   } catch {
     showStatus(
-      "Clipboard access isn't available. Open ClipNest over HTTPS, or copy the text manually.",
+      "Clipboard access isn't available. You can copy the text manually.",
       "error"
     );
   }
@@ -409,8 +469,10 @@ function editClip(id) {
 
   rememberLastWork(clip);
 
-  const card = [...clipList.querySelectorAll(".clip")]
-    .find(el => el.querySelector("h3")?.textContent === clip.title);
+  const cards = [...clipList.querySelectorAll(".clip")];
+  const card = cards.find(el =>
+    el.querySelector("h3")?.textContent === clip.title
+  );
 
   if (!card) return;
 
@@ -448,7 +510,7 @@ function editClip(id) {
     folder,
     content,
     save,
-    makeButton("Cancel", renderClips, "secondary")
+    makeButton("Cancel", renderAll, "secondary")
   );
 
   card.replaceChildren(editor);
@@ -462,7 +524,8 @@ function editClip(id) {
       title: title.value.trim() || "Untitled Clip",
       category: category.value,
       folder: folder.value.trim() || "My Clips",
-      content: content.value
+      content: content.value,
+      checklist: null
     });
 
     if (saveClips()) {
@@ -498,10 +561,13 @@ function toggleChecklist(id) {
   const clip = clips.find(item => item.id === id);
   if (!clip) return;
 
-  const previous = clip.checklist;
+  const previousChecklist = clip.checklist;
+  const previousContent = clip.content;
 
   if (Array.isArray(clip.checklist)) {
-    clip.content = clip.checklist.map(item => item.text).join("\n");
+    clip.content = clip.checklist
+      .map(item => item.text)
+      .join("\n");
     clip.checklist = null;
   } else {
     const lines = (clip.content || "")
@@ -510,7 +576,10 @@ function toggleChecklist(id) {
       .filter(Boolean);
 
     if (!lines.length) {
-      showStatus("Add some lines of text before making a checklist.", "error");
+      showStatus(
+        "Add some lines of text before making a checklist.",
+        "error"
+      );
       return;
     }
 
@@ -530,7 +599,8 @@ function toggleChecklist(id) {
       "success"
     );
   } else {
-    clip.checklist = previous;
+    clip.checklist = previousChecklist;
+    clip.content = previousContent;
   }
 }
 
@@ -543,10 +613,8 @@ function deleteClip(id) {
 
   if (saveClips()) {
     undoDelete = { clip: deleted, index };
-
     refreshFilters();
     renderAll();
-
     showStatus("Clip deleted.", "success", restoreDeletedClip);
   } else {
     clips.splice(index, 0, deleted);
@@ -570,44 +638,10 @@ function restoreDeletedClip() {
   }
 }
 
-function quickCapture() {
-  const content = quickCaptureContent.value.trim();
-
-  if (!content) {
-    showStatus("Type or paste something first.", "error");
-    quickCaptureContent.focus();
-    return;
-  }
-
-  const clip = {
-    id: makeId(),
-    title: "Quick Note",
-    category: "Text",
-    folder: "Inbox",
-    content,
-    created: new Date().toISOString(),
-    reminderDate: "",
-    waiting: false,
-    checklist: null
-  };
-
-  clips.unshift(clip);
-
-  if (saveClips()) {
-    quickCaptureContent.value = "";
-    refreshFilters();
-    renderAll();
-    rememberLastWork(clip);
-    showStatus("Quick Capture saved to Inbox!", "success");
-  } else {
-    clips = clips.filter(item => item.id !== clip.id);
-  }
-}
-
 async function pasteFromClipboard() {
   try {
-    if (!navigator.clipboard || !navigator.clipboard.readText) {
-      throw new Error("Unavailable");
+    if (!navigator.clipboard?.readText) {
+      throw new Error("Clipboard unavailable");
     }
 
     contentInput.value = await navigator.clipboard.readText();
@@ -643,7 +677,7 @@ function exportBackup() {
 }
 
 function importBackup(event) {
-  const file = event.target.files && event.target.files[0];
+  const file = event.target.files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
@@ -655,8 +689,7 @@ function importBackup(event) {
       if (
         !Array.isArray(imported) ||
         !imported.every(item =>
-          item &&
-          typeof item.content === "string"
+          item && typeof item.content === "string"
         )
       ) {
         throw new Error("Invalid backup");
@@ -699,7 +732,7 @@ function importBackup(event) {
 }
 
 function showImportConfirmation() {
-  const panel = document.getElementById("importConfirmation");
+  const panel = $("importConfirmation");
   panel.hidden = false;
   panel.replaceChildren();
 
@@ -733,22 +766,17 @@ function showImportConfirmation() {
   );
 }
 
+// Connect the page controls.
 form.addEventListener("submit", addClip);
 searchInput.addEventListener("input", renderClips);
 categoryFilter.addEventListener("change", renderClips);
 folderFilter.addEventListener("change", renderClips);
 
-document.getElementById("pasteButton")
-  .addEventListener("click", pasteFromClipboard);
-
-document.getElementById("exportButton")
-  .addEventListener("click", exportBackup);
-
+$("pasteButton").addEventListener("click", pasteFromClipboard);
+$("exportButton").addEventListener("click", exportBackup);
 backupFile.addEventListener("change", importBackup);
+$("quickCaptureButton").addEventListener("click", quickCapture);
 
-if (quickCaptureButton) {
-  quickCaptureButton.addEventListener("click", quickCapture);
-}
-
+// Start ClipNest.
 refreshFilters();
 renderAll();
