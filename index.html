@@ -139,7 +139,11 @@
       <button type="button" id="exportButton">Export Backup</button>
 
       <label for="backupFile">Choose a backup file to import</label>
-      <input type="file" id="backupFile">
+      <input
+        type="file"
+        id="backupFile"
+        accept=".json,application/json"
+      >
 
       <div id="importConfirmation"></div>
     </section>
