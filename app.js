@@ -89,7 +89,8 @@ function renderLastWork() {
       localStorage.getItem(LAST_WORK_KEY) || "null"
     );
 
-    if (!last) {
+    if (!last || !clips.some(clip => clip.id === last.id)) {
+      localStorage.removeItem(LAST_WORK_KEY);
       lastWorkText.textContent =
         "Your last opened or edited clip will appear here.";
       return;
@@ -99,6 +100,7 @@ function renderLastWork() {
       last.action + ": " + last.title + " — " +
       new Date(last.date).toLocaleString();
   } catch {
+    localStorage.removeItem(LAST_WORK_KEY);
     lastWorkText.textContent =
       "Your last opened or edited clip will appear here.";
   }
@@ -109,6 +111,12 @@ function addClip(event) {
 
   const content = contentInput.value.trim();
 
+  if (!titleInput.value.trim()) {
+    showStatus("Please enter a title.", "error");
+    titleInput.focus();
+    return;
+  }
+
   if (!content) {
     showStatus("Please enter something to save.", "error");
     return;
@@ -116,7 +124,7 @@ function addClip(event) {
 
   const clip = {
     id: makeId(),
-    title: titleInput.value.trim() || "Untitled Clip",
+    title: titleInput.value.trim(),
     category: categoryInput.value || "Text",
     folder: folderInput.value.trim() || "My Clips",
     content,
@@ -186,17 +194,13 @@ function refreshFilters() {
     clips.map(c => c.folder || "My Clips")
   )].sort();
 
-  categoryFilter.replaceChildren(
-    new Option("All Categories", "")
-  );
+  categoryFilter.replaceChildren(new Option("All Categories", ""));
 
   categories.forEach(value =>
     categoryFilter.add(new Option(value, value))
   );
 
-  folderFilter.replaceChildren(
-    new Option("All Folders", "")
-  );
+  folderFilter.replaceChildren(new Option("All Folders", ""));
 
   folders.forEach(value =>
     folderFilter.add(new Option(value, value))
@@ -239,7 +243,6 @@ function renderClips() {
       checklistText
     ].join(" ").toLowerCase();
 
-    // Every search word must appear somewhere in the clip.
     const matchesSearch = searchWords.every(word =>
       searchableText.includes(word)
     );
@@ -263,6 +266,7 @@ function renderClips() {
   filtered.forEach(clip => {
     const card = document.createElement("article");
     card.className = "clip clip-card";
+    card.dataset.clipId = clip.id;
 
     const heading = document.createElement("h3");
     heading.textContent = clip.title;
@@ -294,6 +298,10 @@ function renderClips() {
       const content = document.createElement("p");
       content.className = "clip-content";
       content.textContent = clip.content;
+
+      // Preserve paragraph and line breaks in saved text.
+      content.style.whiteSpace = "pre-wrap";
+
       content.addEventListener("click", () => rememberLastWork(clip));
       card.appendChild(content);
     }
@@ -355,7 +363,10 @@ function renderChecklist(card, clip) {
   heading.textContent = "Checklist";
   card.appendChild(heading);
 
-  clip.checklist.forEach(item => {
+  const list = document.createElement("div");
+  list.className = "checklist-items";
+
+  clip.checklist.forEach((item, index) => {
     const label = document.createElement("label");
     label.className = "checklist-item";
 
@@ -378,14 +389,53 @@ function renderChecklist(card, clip) {
 
     const text = document.createElement("span");
     text.textContent = item.text;
+    text.style.whiteSpace = "pre-wrap";
 
     if (item.done) {
       text.style.textDecoration = "line-through";
     }
 
     label.append(checkbox, text);
-    card.appendChild(label);
+    list.appendChild(label);
   });
+
+  card.appendChild(list);
+
+  // Add a new checklist item without using pop-up prompts.
+  const addForm = document.createElement("form");
+  addForm.className = "checklist-add-form";
+
+  const itemInput = document.createElement("input");
+  itemInput.type = "text";
+  itemInput.placeholder = "Add a checklist item";
+  itemInput.setAttribute("aria-label", "New checklist item");
+  itemInput.required = true;
+
+  const addButton = document.createElement("button");
+  addButton.type = "submit";
+  addButton.textContent = "Add Item";
+
+  addForm.append(itemInput, addButton);
+
+  addForm.addEventListener("submit", event => {
+    event.preventDefault();
+
+    const text = itemInput.value.trim();
+    if (!text) return;
+
+    const newItem = { text, done: false };
+    clip.checklist.push(newItem);
+
+    if (saveClips()) {
+      rememberLastWork(clip);
+      renderAll();
+      showStatus("Checklist item added.", "success");
+    } else {
+      clip.checklist.pop();
+    }
+  });
+
+  card.appendChild(addForm);
 }
 
 function renderReminders() {
@@ -469,9 +519,8 @@ function editClip(id) {
 
   rememberLastWork(clip);
 
-  const cards = [...clipList.querySelectorAll(".clip")];
-  const card = cards.find(el =>
-    el.querySelector("h3")?.textContent === clip.title
+  const card = clipList.querySelector(
+    '[data-clip-id="' + CSS.escape(id) + '"]'
   );
 
   if (!card) return;
@@ -518,10 +567,16 @@ function editClip(id) {
   editor.addEventListener("submit", event => {
     event.preventDefault();
 
+    if (!title.value.trim()) {
+      showStatus("Please enter a title.", "error");
+      title.focus();
+      return;
+    }
+
     const previous = { ...clip };
 
     Object.assign(clip, {
-      title: title.value.trim() || "Untitled Clip",
+      title: title.value.trim(),
       category: category.value,
       folder: folder.value.trim() || "My Clips",
       content: content.value,
@@ -571,13 +626,13 @@ function toggleChecklist(id) {
     clip.checklist = null;
   } else {
     const lines = (clip.content || "")
-      .split(/\r?\n/)
+      .split(/\r\n|\n|\r|\u2028|\u2029/)
       .map(line => line.trim())
       .filter(Boolean);
 
     if (!lines.length) {
       showStatus(
-        "Add some lines of text before making a checklist.",
+        "Add some lines of text before making a checklist. You can also add items one at a time after creating it.",
         "error"
       );
       return;
@@ -594,7 +649,7 @@ function toggleChecklist(id) {
     renderAll();
     showStatus(
       Array.isArray(clip.checklist)
-        ? "Checklist created."
+        ? "Checklist created. Use Add Item to add more."
         : "Checklist changed back to text.",
       "success"
     );
@@ -613,8 +668,11 @@ function deleteClip(id) {
 
   if (saveClips()) {
     undoDelete = { clip: deleted, index };
+
+    // renderLastWork checks whether its saved clip still exists.
     refreshFilters();
     renderAll();
+
     showStatus("Clip deleted.", "success", restoreDeletedClip);
   } else {
     clips.splice(index, 0, deleted);
@@ -639,20 +697,62 @@ function restoreDeletedClip() {
 }
 
 async function pasteFromClipboard() {
-  try {
-    if (!navigator.clipboard?.readText) {
-      throw new Error("Clipboard unavailable");
-    }
-
-    contentInput.value = await navigator.clipboard.readText();
-    contentInput.focus();
-    showStatus("Pasted from clipboard.", "success");
-  } catch {
+  if (!window.isSecureContext) {
     showStatus(
-      "Your browser blocked clipboard access. Tap the content box, then use your phone's Paste option.",
+      "Clipboard reading requires the secure HTTPS version of ClipNest. Open the live GitHub Pages address in Chrome.",
       "error"
     );
     contentInput.focus();
+    return;
+  }
+
+  try {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API unavailable");
+    }
+
+    let pastedText = "";
+
+    // First try the standard text-reading method.
+    if (navigator.clipboard.readText) {
+      try {
+        pastedText = await navigator.clipboard.readText();
+      } catch (readTextError) {
+        // Try the alternate Clipboard API method below.
+      }
+    }
+
+    // Alternate attempt for browsers supporting clipboard.read().
+    if (!pastedText && navigator.clipboard.read) {
+      const items = await navigator.clipboard.read();
+
+      for (const item of items) {
+        if (item.types.includes("text/plain")) {
+          const blob = await item.getType("text/plain");
+          pastedText = await blob.text();
+          break;
+        }
+      }
+    }
+
+    if (!pastedText) {
+      throw new Error("No readable text was returned");
+    }
+
+    contentInput.value = pastedText;
+    contentInput.dispatchEvent(
+      new Event("input", { bubbles: true })
+    );
+    contentInput.focus();
+
+    showStatus("Pasted from clipboard.", "success");
+  } catch {
+    contentInput.focus();
+
+    showStatus(
+      "Chrome did not allow ClipNest to read the clipboard. Check Chrome's site permissions for ClipNest and allow clipboard access. You can also copy the text again and use Paste inside the Content box.",
+      "error"
+    );
   }
 }
 
