@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "clipnest-v2";
+const CACHE_NAME = "clipnest-v3";
 
 const FILES_TO_CACHE = [
   "./",
@@ -17,6 +17,7 @@ self.addEventListener("install", event => {
       cache.addAll(FILES_TO_CACHE)
     )
   );
+
   self.skipWaiting();
 });
 
@@ -30,6 +31,7 @@ self.addEventListener("activate", event => {
       )
     )
   );
+
   self.clients.claim();
 });
 
