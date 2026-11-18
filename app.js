@@ -299,7 +299,6 @@ function renderClips() {
       content.className = "clip-content";
       content.textContent = clip.content;
 
-      // Preserve paragraph and line breaks in saved text.
       content.style.whiteSpace = "pre-wrap";
 
       content.addEventListener("click", () => rememberLastWork(clip));
@@ -401,7 +400,6 @@ function renderChecklist(card, clip) {
 
   card.appendChild(list);
 
-  // Add a new checklist item without using pop-up prompts.
   const addForm = document.createElement("form");
   addForm.className = "checklist-add-form";
 
@@ -669,7 +667,6 @@ function deleteClip(id) {
   if (saveClips()) {
     undoDelete = { clip: deleted, index };
 
-    // renderLastWork checks whether its saved clip still exists.
     refreshFilters();
     renderAll();
 
@@ -698,32 +695,42 @@ function restoreDeletedClip() {
 
 async function pasteFromClipboard() {
   if (!window.isSecureContext) {
+    contentInput.focus();
     showStatus(
-      "Clipboard reading requires the secure HTTPS version of ClipNest. Open the live GitHub Pages address in Chrome.",
+      "Paste failed: SecurityError: Clipboard reading requires a secure HTTPS connection. Open the live GitHub Pages address in Chrome.",
       "error"
     );
-    contentInput.focus();
     return;
   }
 
-  try {
-    if (!navigator.clipboard) {
-      throw new Error("Clipboard API unavailable");
+  let pastedText = "";
+  let readTextError = null;
+  let readError = null;
+  let readTextUnavailable = false;
+
+  if (!navigator.clipboard) {
+    contentInput.focus();
+    showStatus(
+      "Paste failed: Clipboard API is not available in this browser. Check Chrome's site permissions for ClipNest.",
+      "error"
+    );
+    return;
+  }
+
+  // First attempt: standard clipboard text reading.
+  if (typeof navigator.clipboard.readText === "function") {
+    try {
+      pastedText = await navigator.clipboard.readText();
+    } catch (error) {
+      readTextError = error;
     }
+  } else {
+    readTextUnavailable = true;
+  }
 
-    let pastedText = "";
-
-    // First try the standard text-reading method.
-    if (navigator.clipboard.readText) {
-      try {
-        pastedText = await navigator.clipboard.readText();
-      } catch (readTextError) {
-        // Try the alternate Clipboard API method below.
-      }
-    }
-
-    // Alternate attempt for browsers supporting clipboard.read().
-    if (!pastedText && navigator.clipboard.read) {
+  // Second attempt: alternate clipboard reading method.
+  if (!pastedText && typeof navigator.clipboard.read === "function") {
+    try {
       const items = await navigator.clipboard.read();
 
       for (const item of items) {
@@ -733,27 +740,52 @@ async function pasteFromClipboard() {
           break;
         }
       }
+    } catch (error) {
+      readError = error;
     }
+  }
 
-    if (!pastedText) {
-      throw new Error("No readable text was returned");
-    }
-
+  if (pastedText) {
     contentInput.value = pastedText;
     contentInput.dispatchEvent(
       new Event("input", { bubbles: true })
     );
     contentInput.focus();
-
     showStatus("Pasted from clipboard.", "success");
-  } catch {
-    contentInput.focus();
-
-    showStatus(
-      "Chrome did not allow ClipNest to read the clipboard. Check Chrome's site permissions for ClipNest and allow clipboard access. You can also copy the text again and use Paste inside the Content box.",
-      "error"
-    );
+    return;
   }
+
+  contentInput.focus();
+
+  let diagnostic = "";
+
+  if (readTextUnavailable) {
+    diagnostic = "readText is not available in this browser";
+  } else if (readTextError) {
+    diagnostic =
+      (readTextError.name || "Error") + ": " +
+      (readTextError.message || "No error message provided");
+  }
+
+  if (readError) {
+    const fallbackDiagnostic =
+      (readError.name || "Error") + ": " +
+      (readError.message || "No error message provided");
+
+    diagnostic += diagnostic
+      ? " | clipboard.read fallback: " + fallbackDiagnostic
+      : fallbackDiagnostic;
+  }
+
+  if (!diagnostic) {
+    diagnostic = "No readable text was returned";
+  }
+
+  showStatus(
+    "Paste failed: " + diagnostic +
+    ". Check Chrome's site permissions for ClipNest and allow clipboard access. You can also copy the text again and use Paste inside the Content box.",
+    "error"
+  );
 }
 
 function exportBackup() {
