@@ -898,6 +898,14 @@ function showImportConfirmation() {
   );
 }
 
+// Confirm direct pastes made by the user into the Content box.
+// Let the browser insert the text normally.
+contentInput.addEventListener("paste", () => {
+  setTimeout(() => {
+    showStatus("Text pasted into the Content box.", "success");
+  }, 0);
+});
+
 // Connect the page controls.
 form.addEventListener("submit", addClip);
 searchInput.addEventListener("input", renderClips);
