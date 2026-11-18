@@ -693,11 +693,12 @@ function restoreDeletedClip() {
   }
 }
 
+
 async function pasteFromClipboard() {
   if (!window.isSecureContext) {
     contentInput.focus();
     showStatus(
-      "Paste failed: SecurityError: Clipboard reading requires a secure HTTPS connection. Open the live GitHub Pages address in Chrome.",
+      "Paste failed: SecurityError: Clipboard reading requires a secure HTTPS connection. Open the live GitHub Pages address in Chrome. You can still paste manually into the Content box.",
       "error"
     );
     return;
@@ -711,13 +712,12 @@ async function pasteFromClipboard() {
   if (!navigator.clipboard) {
     contentInput.focus();
     showStatus(
-      "Paste failed: Clipboard API is not available in this browser. Check Chrome's site permissions for ClipNest.",
+      "Paste failed: Clipboard API is not available. Tap inside the Content box, then choose Paste from your phone's keyboard toolbar or long-press the box and tap Paste.",
       "error"
     );
     return;
   }
 
-  // First attempt: standard clipboard text reading.
   if (typeof navigator.clipboard.readText === "function") {
     try {
       pastedText = await navigator.clipboard.readText();
@@ -728,7 +728,6 @@ async function pasteFromClipboard() {
     readTextUnavailable = true;
   }
 
-  // Second attempt: alternate clipboard reading method.
   if (!pastedText && typeof navigator.clipboard.read === "function") {
     try {
       const items = await navigator.clipboard.read();
@@ -783,10 +782,11 @@ async function pasteFromClipboard() {
 
   showStatus(
     "Paste failed: " + diagnostic +
-    ". Check Chrome's site permissions for ClipNest and allow clipboard access. You can also copy the text again and use Paste inside the Content box.",
+    ". The browser blocked automatic clipboard reading. To paste anyway, tap inside the Content box, then choose Paste from your phone's keyboard toolbar or long-press the box and tap Paste.",
     "error"
   );
 }
+
 
 function exportBackup() {
   const blob = new Blob(
