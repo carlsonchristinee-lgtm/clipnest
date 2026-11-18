@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "clipnest-v3";
+const CACHE_NAME = "clipnest-v4";
 
 const FILES_TO_CACHE = [
   "./",
